@@ -24,6 +24,7 @@ import org.jfree.data.xy.*;
 import org.jfree.ui.ApplicationFrame;
 
 import java.awt.Color;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -46,8 +47,8 @@ public class DrawStocks extends ApplicationFrame {
         this.minPrice = marketData.getMinPrice();
         this.tradingAlgo = tradingAlgo;
 
-        final DefaultHighLowDataset dataset = createDataset();
-        final JFreeChart chart = createChart(dataset);
+        final TimeSeriesDataSet timeSeriesDataSet = createDataset();
+        final JFreeChart chart = createChart(timeSeriesDataSet);
         final ChartPanel chartPanel = new ChartPanel(chart);
         chartPanel.setPreferredSize(new java.awt.Dimension(1500, 600));
         chartPanel.setFillZoomRectangle(true);
@@ -56,9 +57,46 @@ public class DrawStocks extends ApplicationFrame {
 //        getContentPane().add(chartPanel);
     }
 
+    private static class MarkerDate {
+        private Date date;
+        private List<AbstractTradingAlgo.Marker> markers;
+
+        MarkerDate(final Date date, List<AbstractTradingAlgo.Marker> markers) {
+            this.date =date;
+            this.markers = markers;
+        }
+
+        Date getDate() {
+            return date;
+        }
+
+        List<AbstractTradingAlgo.Marker> getMarkers() {
+            return markers;
+        }
+    }
+
+    private static class TimeSeriesDataSet {
+        private DefaultHighLowDataset defaultHighLowDataset;
+        private List<MarkerDate> markerTimeSeries;
+
+        TimeSeriesDataSet(final DefaultHighLowDataset defaultHighLowDataset, final List<MarkerDate> markerTimeSeries) {
+            this.defaultHighLowDataset = defaultHighLowDataset;
+            this.markerTimeSeries = markerTimeSeries;
+        }
+
+        public DefaultHighLowDataset getDefaultHighLowDataset() {
+            return defaultHighLowDataset;
+        }
+
+        public List<MarkerDate> getMarkerTimeSeries() {
+            return markerTimeSeries;
+        }
+    }
 
 
-    private DefaultHighLowDataset createDataset() {
+
+    private TimeSeriesDataSet createDataset() {
+        final List<MarkerDate> markerDates = new ArrayList<>();
         int marketValuesSize = marketValues.size();
         int stride = marketValuesSize / NUMBER_OF_VALUES;
 
@@ -78,6 +116,8 @@ public class DrawStocks extends ApplicationFrame {
             lowPrice[j] = symbolMarketValue.getLow();
             date[j] = symbolMarketValue.getDate();
             volume[j] = symbolMarketValue.getVolume();
+
+            markerDates.add(new MarkerDate(symbolMarketValue.getDate(), symbolMarketValue.getMarkers()));
         }
         final DefaultHighLowDataset dataset = new DefaultHighLowDataset(
                 symbolName,
@@ -88,18 +128,19 @@ public class DrawStocks extends ApplicationFrame {
                 closePrice,
                 volume
         );
-        return dataset;
+        return new TimeSeriesDataSet(dataset, markerDates);
 
     }
 
     /**
      * Creates a chart.
      *
-     * @param dataset  the data for the chart.
+     * @param timeSeriesDataSet  the data for the chart.
      *
      * @return a chart.
      */
-    private JFreeChart createChart(final OHLCDataset dataset) {
+    private JFreeChart createChart(final TimeSeriesDataSet timeSeriesDataSet) {
+        final OHLCDataset dataset = timeSeriesDataSet.getDefaultHighLowDataset();
         long startTime = marketValues.get(0).getDate().getTime();
 
         SegmentedTimeline baseTimeLine = new SegmentedTimeline(SegmentedTimeline.DAY_SEGMENT_SIZE, 5, 2);
@@ -163,6 +204,7 @@ public class DrawStocks extends ApplicationFrame {
         plot.mapDatasetToRangeAxis(0, 0);
         plot.mapDatasetToRangeAxis(1, 0);
         plot.mapDatasetToRangeAxis(2, 2);
+        plot.mapDatasetToRangeAxis(3, 3);
 
         final ValueAxis axis2 = new NumberAxis("Account Balance [USD]");
         axis2.setAxisLinePaint(Color.lightGray);
@@ -177,12 +219,111 @@ public class DrawStocks extends ApplicationFrame {
         plot.setRangeAxis(2, axis2);
 
         axis2.setAutoRange(true);
+
+
+        final ValueAxis axis3 = new NumberAxis("Markers");
+        axis3.setAxisLinePaint(Color.lightGray);
+        axis3.setTickLabelPaint(Color.lightGray);
+        axis3.setTickLabelPaint(Color.lightGray);
+        axis3.setLabelPaint(Color.lightGray);
+        final XYColoredDataSet coloredDataSet = createMarkers(timeSeriesDataSet.getMarkerTimeSeries());
+        final XYDataset markers = coloredDataSet.getXyDataset();
+
+        plot.setDataset(3, markers);
+        StandardXYItemRenderer renderer4 = new StandardXYItemRenderer();
+        int cidx = 0;
+        for(final AbstractTradingAlgo.Marker.Color color: coloredDataSet.getColors()) {
+            renderer4.setSeriesPaint(cidx, getColor(color));
+            cidx++;
+        }
+        plot.setRenderer(3, renderer4);
+        axis3.setAutoRange(true);
+        plot.setRangeAxis(3, axis3);
+
         plot.setRenderer(renderer);
 
 
 
         return chart;
 
+    }
+
+    Color getColor(AbstractTradingAlgo.Marker.Color color) {
+        switch (color) {
+            case WHITE:
+                return Color.white;
+            case BLUE:
+                return Color.blue;
+            case RED:
+                return Color.red;
+            case YELLOW:
+                return Color.yellow;
+            case GREEN:
+                return Color.green;
+            default:
+                return Color.black;
+
+        }
+    }
+
+    private static class XYColoredDataSet {
+        private List<AbstractTradingAlgo.Marker.Color> colors;
+        private XYDataset xyDataset;
+
+        XYColoredDataSet(final List<AbstractTradingAlgo.Marker.Color> color, XYDataset xyDataset) {
+            this.colors =color;
+            this.xyDataset = xyDataset;
+        }
+
+        public List<AbstractTradingAlgo.Marker.Color> getColors() {
+            return colors;
+        }
+
+        public XYDataset getXyDataset() {
+            return xyDataset;
+        }
+    }
+
+    public XYColoredDataSet createMarkers(List<MarkerDate> markerDates) {
+        XYSeriesCollection result = new XYSeriesCollection();
+
+        List<AbstractTradingAlgo.Marker.Color> colors = new ArrayList<>();
+        List<String> titles = new ArrayList<>();
+        int max = 0;
+        for(final MarkerDate markerDate: markerDates) {
+            List<AbstractTradingAlgo.Marker> markers = markerDate.getMarkers();
+            if (markers != null && max < markers.size()) {
+                max = markers.size();
+                titles.clear();
+                colors.clear();
+                int midx=0;
+                for(final AbstractTradingAlgo.Marker m: markers) {
+                    final String description = (m.getDescription()==null) ? "marker_"+midx : m.getDescription();
+                    midx++;
+                    titles.add(description);
+                    colors.add(m.getColor());
+                }
+            }
+        }
+        List<XYSeries> series = new ArrayList<>();
+
+        for(int idx = 0; idx<max; ++idx) {
+            XYSeries plot = new XYSeries(titles.get(idx));
+            series.add(plot);
+
+        }
+        for(final MarkerDate markerDate: markerDates) {
+            List<AbstractTradingAlgo.Marker> markers = markerDate.getMarkers();
+            if(markers!=null) {
+                for (int idx = 0; idx < markers.size(); ++idx) {
+                    series.get(idx).add(markerDate.getDate().getTime(), markers.get(idx).getValue());
+                }
+            }
+        }
+        for(final XYSeries xy: series) {
+            result.addSeries(xy);
+        }
+        return new XYColoredDataSet(colors, result);
     }
 
     public  XYDataset createAccountBalance() {

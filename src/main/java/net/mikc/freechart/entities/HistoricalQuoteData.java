@@ -1,6 +1,9 @@
 package net.mikc.freechart.entities;
 
+import net.mikc.freechart.algo.AbstractTradingAlgo;
+
 import java.util.Date;
+import java.util.List;
 
 /**
  * Created by michalconos on 08/10/2016.
@@ -8,6 +11,7 @@ import java.util.Date;
 public final class HistoricalQuoteData {
     private final Float close, high, low, open, volume;
     private final Date date;
+    private List<AbstractTradingAlgo.Marker> markers;
 
     public HistoricalQuoteData(
             final Date date,
@@ -23,6 +27,14 @@ public final class HistoricalQuoteData {
         this.open = open;
         this.volume = volume;
         this.date = date;
+    }
+
+    public void setMarkers(List<AbstractTradingAlgo.Marker> markers) {
+        this.markers = markers;
+    }
+
+    public List<AbstractTradingAlgo.Marker> getMarkers() {
+        return markers;
     }
 
     public Float getClose() {

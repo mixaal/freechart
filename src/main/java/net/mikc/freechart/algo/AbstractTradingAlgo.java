@@ -1,8 +1,5 @@
 package net.mikc.freechart.algo;
 
-import com.google.common.eventbus.EventBus;
-import com.sun.corba.se.pept.broker.Broker;
-import net.mikc.freechart.broker.BrokerChannel;
 import net.mikc.freechart.broker.MessageToBroker;
 import net.mikc.freechart.broker.Operation;
 import net.mikc.freechart.entities.HistoricalQuoteMarketData;
@@ -31,13 +28,11 @@ public abstract class AbstractTradingAlgo {
         this.symbolAmount = 0;
     }
 
-    public abstract void trade(AccountBalance lowest, AccountBalance highest, Float symbolMarketValue);
+    public abstract void trade(AccountBalance lowest, AccountBalance highest, HistoricalQuoteData symbolMarketValue);
 
     protected Float getPrice(HistoricalQuoteData historicalQuoteData) {
         return 0.5f * (historicalQuoteData.getLow() + historicalQuoteData.getHigh());
     }
-
-
 
     protected void buy(int amount) {
         messageToBroker = new MessageToBroker(Operation.BUY, amount);
@@ -56,7 +51,7 @@ public abstract class AbstractTradingAlgo {
                     marketValue.getDate()
             );
             accountBalanceSnapshots.add(accountBalanceAtTime);
-            trade(lowest, highest, getPrice(marketValue));
+            trade(lowest, highest, marketValue);
             processMessageToBroker(lowest, highest, marketValue);
         }
     }
@@ -99,5 +94,36 @@ public abstract class AbstractTradingAlgo {
 
     public List<AccountBalanceAtTime> getAccountBalanceSnapshots() {
         return accountBalanceSnapshots;
+    }
+
+    public static final class Marker {
+        public enum Color {
+            BLUE, WHITE, YELLOW, RED, GREEN
+        }
+
+        public Marker(final String description, final Color color) {
+            this.color = color;
+            this.description = description;
+        }
+
+        private final Color color;
+        private final String description;
+        private Float value;
+
+        public void setValue(Float value) {
+            this.value = value;
+        }
+
+        public Float getValue() {
+            return value;
+        }
+
+        public Color getColor() {
+            return color;
+        }
+
+        public String getDescription() {
+            return description;
+        }
     }
 }
