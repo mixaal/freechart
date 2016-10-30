@@ -2,6 +2,7 @@ package net.mikc.freechart.entities;
 
 import net.mikc.freechart.algo.AbstractTradingAlgo;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -30,7 +31,15 @@ public final class HistoricalQuoteData {
     }
 
     public void setMarkers(List<AbstractTradingAlgo.Marker> markers) {
-        this.markers = markers;
+        List<AbstractTradingAlgo.Marker> markerClones = new ArrayList<>();
+        if(markers!=null) {
+            for(AbstractTradingAlgo.Marker m: markers) {
+                final AbstractTradingAlgo.Marker marker = new AbstractTradingAlgo.Marker(m.getDescription(), m.getColor());
+                marker.setValue(m.getValue());
+                markerClones.add(marker);
+            }
+        }
+        this.markers = markerClones;
     }
 
     public List<AbstractTradingAlgo.Marker> getMarkers() {
